@@ -166,34 +166,82 @@ function Model3D({ modelUrl }) {
         setError(null);
         setModel(null);
         
-        const loader = new OBJLoader();
+        // Detect file type from URL
+        const fileExtension = modelUrl.split('.').pop().toLowerCase();
+        console.log('📁 File type detected:', fileExtension);
         
-        loader.load(
-            modelUrl,
-            // Success callback
-            (object) => {
-                console.log('✅ [HologramEnvironment] Model loaded successfully:', object);
-                
-                // Find the first mesh in the loaded object
-                let mesh = null;
-                let geometry = null;
-                
-                object.traverse((child) => {
-                    if (child.isMesh && child.geometry) {
-                        mesh = child;
-                        geometry = child.geometry;
+        if (fileExtension === 'gltf' || fileExtension === 'glb') {
+            // ============================================
+            // GLTF/GLB LOADER - Modern format with embedded scene
+            // ============================================
+            console.log('🌟 Using GLTF Loader');
+            const gltfLoader = new GLTFLoader();
+            
+            gltfLoader.load(
+                modelUrl,
+                (gltf) => {
+                    console.log('✅ GLTF loaded successfully');
+                    console.log('📦 GLTF scene structure:', gltf.scene);
+                    
+                    // GLTF provides complete scene
+                    const scene = gltf.scene;
+                    
+                    // Collect all meshes from GLTF scene
+                    const meshes = [];
+                    scene.traverse((child) => {
+                        if (child.isMesh) {
+                            meshes.push(child);
+                            console.log('🔍 Found mesh:', child.name || 'unnamed');
+                        }
+                    });
+                    
+                    console.log(`✅ Found ${meshes.length} mesh(es) in GLTF`);
+                    
+                    if (meshes.length === 0) {
+                        setError('No meshes found in GLTF file');
+                        setLoading(false);
                         return;
                     }
-                });
-                
-                if (mesh && geometry) {
-                    console.log('🎯 [HologramEnvironment] Found mesh with geometry:', geometry);
-                    console.log('  └─ Vertices:', geometry.attributes.position.count);
                     
-                    // CRITICAL: Geometry bounds checking and logging
-                    geometry.computeBoundingBox();
-                    const bbox = geometry.boundingBox;
-                    console.log('📏 [HologramEnvironment] Geometry bounds:', bbox);
+                    // Create merged geometry from all meshes
+                    let mergedGeometry;
+                    
+                    if (meshes.length === 1) {
+                        mergedGeometry = meshes[0].geometry.clone();
+                    } else {
+                        // Merge multiple meshes
+                        const geometries = [];
+                        meshes.forEach(mesh => {
+                            const geo = mesh.geometry.clone();
+                            mesh.updateMatrixWorld();
+                            geo.applyMatrix4(mesh.matrixWorld);
+                            geometries.push(geo);
+                        });
+                        
+                        // Merge all geometries into one
+                        mergedGeometry = new THREE.BufferGeometry();
+                        let totalVertices = 0;
+                        let totalIndices = 0;
+                        
+                        geometries.forEach(geo => {
+                            totalVertices += geo.attributes.position.count;
+                            if (geo.index) {
+                                totalIndices += geo.index.count;
+                            }
+                        });
+                        
+                        console.log(`🔧 Merging ${geometries.length} geometries: ${totalVertices} vertices`);
+                        
+                        // Simple merge - combine first geometry (for now)
+                        mergedGeometry = geometries[0];
+                    }
+                    
+                    // Compute normals and bounds
+                    mergedGeometry.computeBoundingBox();
+                    mergedGeometry.computeVertexNormals();
+                    
+                    const bbox = mergedGeometry.boundingBox;
+                    console.log('📏 [HologramEnvironment] GLTF Geometry bounds:', bbox);
                     console.log('  └─ Min:', bbox.min);
                     console.log('  └─ Max:', bbox.max);
                     console.log('  └─ Size:', {
@@ -204,45 +252,122 @@ function Model3D({ modelUrl }) {
                     
                     setGeometryBounds(bbox);
                     
-                    // HOLOGRAM MATERIAL: Custom shader for hologram effects
-                    const material = createHologramMaterial();
+                    // Apply hologram material
+                    const hologramMaterial = createHologramMaterial();
                     
-                    // Create new mesh with hologram material
-                    const newMesh = new THREE.Mesh(geometry, material);
+                    // Create final hologram mesh
+                    const hologramMesh = new THREE.Mesh(mergedGeometry, hologramMaterial);
                     
-                    // HOLOGRAM ENVIRONMENT: Adaptive intelligent scaling for ANY model size
-                    console.log('🎯 [HologramEnvironment] Applying adaptive scaling system...');
-
-                    // Use intelligent camera-aware scaling
-                    const scalingInfo = setupModelScaling(newMesh, cameraRef.current);
-
-                    console.log('🎯 [HologramEnvironment] Scaling complete:', {
-                        appliedScale: scalingInfo.scale.toFixed(4),
+                    // Apply adaptive scaling (your existing function)
+                    console.log('🎯 [HologramEnvironment] Applying adaptive scaling...');
+                    const scalingInfo = setupModelScaling(hologramMesh, cameraRef.current);
+                    
+                    console.log('✅ GLTF model ready:', {
+                        meshCount: meshes.length,
+                        scale: scalingInfo.scale.toFixed(4),
                         modelRadius: scalingInfo.radius.toFixed(2),
                         viewportFill: Math.round(scalingInfo.viewportOccupancy * 100) + '%'
                     });
                     
-                    setModel(newMesh);
+                    setModel(hologramMesh);
                     setLoading(false);
-                    console.log('🎉 [HologramEnvironment] Model ready for hologram display from fixed camera position!');
-                } else {
-                    console.error('❌ [HologramEnvironment] No mesh found in loaded object');
-                    setError('No 3D geometry found in file');
+                    console.log('🎉 [HologramEnvironment] GLTF model ready for hologram display!');
+                },
+                (progress) => {
+                    // Loading progress
+                    const percent = (progress.loaded / progress.total) * 100;
+                    console.log(`📊 [HologramEnvironment] GLTF Loading: ${percent.toFixed(0)}%`);
+                },
+                (error) => {
+                    console.error('❌ GLTF loading error:', error);
+                    setError('Failed to load GLTF: ' + error.message);
                     setLoading(false);
                 }
-            },
-            // Progress callback
-            (progress) => {
-                const percent = progress.total > 0 ? (progress.loaded / progress.total) * 100 : 0;
-                console.log(`📊 [HologramEnvironment] Loading progress: ${percent.toFixed(1)}%`);
-            },
-            // Error callback
-            (error) => {
-                console.error('❌ [HologramEnvironment] Failed to load model:', error);
-                setError('Failed to load 3D model: ' + error.message);
-                setLoading(false);
-            }
-        );
+            );
+            
+        } else {
+            // ============================================
+            // OBJ LOADER - Original implementation
+            // ============================================
+            console.log('📦 Using OBJ Loader');
+            const objLoader = new OBJLoader();
+            
+            objLoader.load(
+                modelUrl,
+                // Success callback
+                (object) => {
+                    console.log('✅ [HologramEnvironment] Model loaded successfully:', object);
+                    
+                    // Find the first mesh in the loaded object
+                    let mesh = null;
+                    let geometry = null;
+                    
+                    object.traverse((child) => {
+                        if (child.isMesh && child.geometry) {
+                            mesh = child;
+                            geometry = child.geometry;
+                            return;
+                        }
+                    });
+                    
+                    if (mesh && geometry) {
+                        console.log('🎯 [HologramEnvironment] Found mesh with geometry:', geometry);
+                        console.log('  └─ Vertices:', geometry.attributes.position.count);
+                        
+                        // CRITICAL: Geometry bounds checking and logging
+                        geometry.computeBoundingBox();
+                        const bbox = geometry.boundingBox;
+                        console.log('📏 [HologramEnvironment] Geometry bounds:', bbox);
+                        console.log('  └─ Min:', bbox.min);
+                        console.log('  └─ Max:', bbox.max);
+                        console.log('  └─ Size:', {
+                            x: bbox.max.x - bbox.min.x,
+                            y: bbox.max.y - bbox.min.y,
+                            z: bbox.max.z - bbox.min.z
+                        });
+                        
+                        setGeometryBounds(bbox);
+                        
+                        // HOLOGRAM MATERIAL: Custom shader for hologram effects
+                        const material = createHologramMaterial();
+                        
+                        // Create new mesh with hologram material
+                        const newMesh = new THREE.Mesh(geometry, material);
+                        
+                        // HOLOGRAM ENVIRONMENT: Adaptive intelligent scaling for ANY model size
+                        console.log('🎯 [HologramEnvironment] Applying adaptive scaling system...');
+
+                        // Use intelligent camera-aware scaling
+                        const scalingInfo = setupModelScaling(newMesh, cameraRef.current);
+
+                        console.log('🎯 [HologramEnvironment] Scaling complete:', {
+                            appliedScale: scalingInfo.scale.toFixed(4),
+                            modelRadius: scalingInfo.radius.toFixed(2),
+                            viewportFill: Math.round(scalingInfo.viewportOccupancy * 100) + '%'
+                        });
+                        
+                        setModel(newMesh);
+                        setLoading(false);
+                        console.log('🎉 [HologramEnvironment] Model ready for hologram display from fixed camera position!');
+                    } else {
+                        console.error('❌ [HologramEnvironment] No mesh found in loaded object');
+                        setError('No 3D geometry found in file');
+                        setLoading(false);
+                    }
+                },
+                // Progress callback
+                (progress) => {
+                    const percent = progress.total > 0 ? (progress.loaded / progress.total) * 100 : 0;
+                    console.log(`📊 [HologramEnvironment] Loading progress: ${percent.toFixed(1)}%`);
+                },
+                // Error callback
+                (error) => {
+                    console.error('❌ [HologramEnvironment] Failed to load model:', error);
+                    setError('Failed to load 3D model: ' + error.message);
+                    setLoading(false);
+                }
+            );
+        }
     }, [modelUrl]);
 
     // Loading state - yellow cube
