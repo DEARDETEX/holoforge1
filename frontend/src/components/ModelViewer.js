@@ -288,106 +288,200 @@ function Model3D({ modelUrl }) {
             
         } else {
             // ============================================
-            // OBJ LOADER - Multi-mesh support with proper merging
+            // OBJ LOADER - Blender-Inspired Multi-Mesh System
             // ============================================
-            console.log('📦 Using OBJ Loader');
+            console.log('📦 Using OBJ Loader with Multi-Mesh Support');
             const objLoader = new OBJLoader();
             
             objLoader.load(
                 modelUrl,
-                // Success callback
+                // SUCCESS CALLBACK
                 (object) => {
-                    console.log('🎨 [ModelViewer] OBJ loaded successfully');
-                    console.log('📦 [ModelViewer] Object structure:', {
-                        type: object.type,
-                        childrenCount: object.children.length
-                    });
+                    console.log('═══════════════════════════════════════');
+                    console.log('🎨 OBJ LOADING START - BLENDER METHOD');
+                    console.log('═══════════════════════════════════════');
+                    console.log('📦 Root object type:', object.type);
+                    console.log('📦 Direct children:', object.children.length);
                     
                     // ============================================
-                    // COLLECT ALL MESHES (Recursive Traversal)
+                    // PHASE 1: MESH COLLECTION (Blender's Scene Traversal)
+                    // Based on: source/blender/draw/intern/draw_manager.cc
                     // ============================================
                     const meshes = [];
+                    let totalVerticesBeforeMerge = 0;
                     
+                    console.log('🔍 Starting recursive mesh collection...');
+                    
+                    // Recursive traversal (Blender's scene graph pattern)
                     object.traverse((child) => {
                         if (child.isMesh && child.geometry) {
+                            const vertCount = child.geometry.attributes.position?.count || 0;
+                            
+                            if (vertCount === 0) {
+                                console.warn(`⚠️  Skipping mesh "${child.name}" - no vertices`);
+                                return;
+                            }
+                            
                             meshes.push(child);
-                            console.log('🔍 Found mesh:', {
-                                name: child.name || 'unnamed',
-                                vertices: child.geometry.attributes.position?.count || 0
+                            totalVerticesBeforeMerge += vertCount;
+                            
+                            console.log(`  ✓ Mesh ${meshes.length}: "${child.name || 'unnamed'}"`, {
+                                vertices: vertCount,
+                                hasNormals: !!child.geometry.attributes.normal,
+                                hasUVs: !!child.geometry.attributes.uv,
+                                position: {
+                                    x: child.position.x.toFixed(2),
+                                    y: child.position.y.toFixed(2),
+                                    z: child.position.z.toFixed(2)
+                                }
                             });
                         }
                     });
                     
-                    console.log(`✅ Found ${meshes.length} mesh(es) in OBJ`);
+                    console.log('═══════════════════════════════════════');
+                    console.log('✅ Mesh Collection Complete');
+                    console.log(`   Total meshes found: ${meshes.length}`);
+                    console.log(`   Total vertices: ${totalVerticesBeforeMerge}`);
+                    console.log('═══════════════════════════════════════');
                     
+                    // Validation
                     if (meshes.length === 0) {
-                        setError('No meshes found in OBJ file');
+                        console.error('❌ CRITICAL: No meshes found in OBJ file!');
+                        setError('No 3D geometry found in OBJ file');
                         setLoading(false);
                         return;
                     }
                     
                     // ============================================
-                    // MERGE ALL GEOMETRIES PROPERLY
+                    // PHASE 2: GEOMETRY MERGING (Blender's GPU Batch System)
+                    // Based on: source/blender/gpu/GPU_batch.hh
                     // ============================================
                     let mergedGeometry;
                     
                     if (meshes.length === 1) {
-                        // Single mesh - simple case
+                        // Single mesh - direct use (no merge needed)
+                        console.log('📦 Single mesh detected - using directly');
                         mergedGeometry = meshes[0].geometry.clone();
-                        console.log('📦 Single mesh - using directly');
                         
                     } else {
-                        // Multiple meshes - PROPER MERGING
-                        console.log('🔨 Merging', meshes.length, 'meshes...');
+                        // Multi-mesh - Professional merging (Blender's approach)
+                        console.log('═══════════════════════════════════════');
+                        console.log(`🔨 MERGING ${meshes.length} MESHES`);
+                        console.log('   Using Blender-inspired batching system');
+                        console.log('═══════════════════════════════════════');
                         
-                        const geometries = [];
-                        
-                        meshes.forEach((mesh, index) => {
-                            const geo = mesh.geometry.clone();
+                        // Step 1: Verify BufferGeometryUtils availability
+                        if (typeof BufferGeometryUtils === 'undefined' || 
+                            typeof BufferGeometryUtils.mergeGeometries === 'undefined') {
+                            console.error('❌ CRITICAL: BufferGeometryUtils not available!');
+                            console.error('   Import statement missing or failed');
+                            console.error('   Falling back to first mesh only');
+                            mergedGeometry = meshes[0].geometry.clone();
+                        } else {
+                            console.log('✅ BufferGeometryUtils available');
                             
-                            // CRITICAL: Apply mesh transformation to geometry
-                            mesh.updateMatrixWorld(true); // Update with parent transforms
-                            geo.applyMatrix4(mesh.matrixWorld); // Apply world transform
+                            // Step 2: Prepare geometries with world transforms
+                            // (Blender applies model matrix before batching)
+                            const geometriesToMerge = [];
                             
-                            // Ensure geometry has required attributes
-                            if (!geo.attributes.position) {
-                                console.warn(`⚠️ Mesh ${index} has no position attribute, skipping`);
-                                return;
+                            meshes.forEach((mesh, index) => {
+                                console.log(`  Processing mesh ${index + 1}/${meshes.length}...`);
+                                
+                                // Clone geometry to avoid modifying original
+                                const geo = mesh.geometry.clone();
+                                
+                                // CRITICAL: Apply world transform
+                                // (Blender does this in draw_manager before GPU submission)
+                                mesh.updateMatrixWorld(true);
+                                geo.applyMatrix4(mesh.matrixWorld);
+                                
+                                // Validate geometry has required attributes
+                                if (!geo.attributes.position) {
+                                    console.warn(`  ⚠️  Mesh ${index + 1} missing position attribute - SKIPPING`);
+                                    return;
+                                }
+                                
+                                // Ensure normals exist (Blender always provides normals)
+                                if (!geo.attributes.normal) {
+                                    console.log(`  🔧 Computing normals for mesh ${index + 1}...`);
+                                    geo.computeVertexNormals();
+                                }
+                                
+                                geometriesToMerge.push(geo);
+                                
+                                console.log(`  ✅ Mesh ${index + 1} prepared:`, {
+                                    vertices: geo.attributes.position.count,
+                                    hasNormals: !!geo.attributes.normal,
+                                    transformed: true
+                                });
+                            });
+                            
+                            console.log(`📦 Geometries ready for merge: ${geometriesToMerge.length}`);
+                            
+                            // Step 3: Execute merge (Blender's GPU batch creation)
+                            try {
+                                console.log('🔨 Calling BufferGeometryUtils.mergeGeometries...');
+                                
+                                // mergeGeometries(geometries, useGroups)
+                                // useGroups=false: single material (our hologram shader)
+                                mergedGeometry = BufferGeometryUtils.mergeGeometries(
+                                    geometriesToMerge, 
+                                    false  // No material groups needed
+                                );
+                                
+                                if (!mergedGeometry) {
+                                    throw new Error('mergeGeometries returned null');
+                                }
+                                
+                                console.log('═══════════════════════════════════════');
+                                console.log('✅ MERGE SUCCESSFUL!');
+                                console.log('   Method: BufferGeometryUtils.mergeGeometries');
+                                console.log('   Result:', {
+                                    totalVertices: mergedGeometry.attributes.position.count,
+                                    hasNormals: !!mergedGeometry.attributes.normal,
+                                    hasIndex: !!mergedGeometry.index,
+                                    drawMode: mergedGeometry.drawMode
+                                });
+                                console.log('═══════════════════════════════════════');
+                                
+                            } catch (error) {
+                                console.error('═══════════════════════════════════════');
+                                console.error('❌ MERGE FAILED!');
+                                console.error('   Error:', error.message);
+                                console.error('   Stack:', error.stack);
+                                console.error('═══════════════════════════════════════');
+                                console.error('⚠️  Falling back to first geometry only');
+                                mergedGeometry = geometriesToMerge[0] || meshes[0].geometry.clone();
                             }
-                            
-                            geometries.push(geo);
-                            
-                            console.log(`  └─ Mesh ${index + 1}: ${geo.attributes.position.count} vertices`);
-                        });
-                        
-                        // Use BufferGeometryUtils for proper merging
-                        try {
-                            mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries, false);
-                            console.log('✅ Geometries merged successfully');
-                            console.log('📊 Total vertices:', mergedGeometry.attributes.position.count);
-                            
-                        } catch (error) {
-                            console.error('❌ Merge failed:', error);
-                            // Fallback: use first geometry
-                            mergedGeometry = geometries[0];
-                            console.warn('⚠️ Using first geometry as fallback');
                         }
                     }
                     
                     // ============================================
-                    // COMPUTE NORMALS AND BOUNDS
+                    // PHASE 3: GEOMETRY FINALIZATION
                     // ============================================
+                    console.log('🔧 Finalizing merged geometry...');
+                    
+                    // Ensure normals are computed
                     if (!mergedGeometry.attributes.normal) {
+                        console.log('  Computing vertex normals...');
                         mergedGeometry.computeVertexNormals();
-                        console.log('✅ Computed vertex normals');
                     }
                     
+                    // Compute bounding box (required for adaptive scaling)
                     mergedGeometry.computeBoundingBox();
                     const bbox = mergedGeometry.boundingBox;
                     
-                    console.log('📐 Bounding box:', {
-                        min: bbox.min,
-                        max: bbox.max,
+                    console.log('📐 Bounding Box:', {
+                        min: {
+                            x: bbox.min.x.toFixed(2),
+                            y: bbox.min.y.toFixed(2),
+                            z: bbox.min.z.toFixed(2)
+                        },
+                        max: {
+                            x: bbox.max.x.toFixed(2),
+                            y: bbox.max.y.toFixed(2),
+                            z: bbox.max.z.toFixed(2)
+                        },
                         size: {
                             x: (bbox.max.x - bbox.min.x).toFixed(2),
                             y: (bbox.max.y - bbox.min.y).toFixed(2),
@@ -398,43 +492,61 @@ function Model3D({ modelUrl }) {
                     setGeometryBounds(bbox);
                     
                     // ============================================
-                    // CREATE HOLOGRAM MATERIAL
+                    // PHASE 4: HOLOGRAM MATERIAL APPLICATION
                     // ============================================
+                    console.log('🎨 Creating hologram material...');
                     const hologramMaterial = createHologramMaterial();
                     
-                    // ============================================
-                    // CREATE FINAL HOLOGRAM MESH
-                    // ============================================
+                    // Create final mesh (Blender's GPU batch equivalent)
                     const hologramMesh = new THREE.Mesh(mergedGeometry, hologramMaterial);
                     
-                    console.log('🎨 Created hologram mesh');
+                    console.log('✅ Hologram mesh created');
                     
                     // ============================================
-                    // APPLY ADAPTIVE SCALING
+                    // PHASE 5: ADAPTIVE SCALING
                     // ============================================
-                    console.log('🎯 [HologramEnvironment] Applying adaptive scaling...');
+                    console.log('═══════════════════════════════════════');
+                    console.log('🎯 Applying Adaptive Scaling System');
+                    console.log('═══════════════════════════════════════');
+                    
                     const scalingInfo = setupModelScaling(hologramMesh, cameraRef.current);
                     
-                    console.log('✅ OBJ model ready:', {
+                    console.log('═══════════════════════════════════════');
+                    console.log('✅ OBJ MODEL READY FOR DISPLAY');
+                    console.log('═══════════════════════════════════════');
+                    console.log('📊 Final Statistics:', {
                         meshCount: meshes.length,
-                        vertices: mergedGeometry.attributes.position.count,
-                        scale: scalingInfo.scale.toFixed(4),
-                        modelRadius: scalingInfo.radius.toFixed(2),
+                        totalVertices: mergedGeometry.attributes.position.count,
+                        scale: scalingInfo.scale.toFixed(6),
+                        radius: scalingInfo.radius.toFixed(2),
                         viewportFill: Math.round(scalingInfo.viewportOccupancy * 100) + '%'
                     });
+                    console.log('═══════════════════════════════════════');
+                    console.log('🎉 LOADING COMPLETE - READY TO RENDER');
+                    console.log('═══════════════════════════════════════');
                     
+                    // Set the final model
                     setModel(hologramMesh);
                     setLoading(false);
-                    console.log('🎉 [HologramEnvironment] OBJ model ready for hologram display!');
                 },
-                // Progress callback
+                
+                // PROGRESS CALLBACK
                 (progress) => {
-                    const percent = progress.total > 0 ? (progress.loaded / progress.total) * 100 : 0;
-                    console.log(`📊 [HologramEnvironment] OBJ Loading: ${percent.toFixed(0)}%`);
+                    if (progress.total > 0) {
+                        const percent = (progress.loaded / progress.total) * 100;
+                        console.log(`📊 Loading OBJ: ${percent.toFixed(0)}%`);
+                    }
                 },
-                // Error callback
+                
+                // ERROR CALLBACK
                 (error) => {
-                    console.error('❌ OBJ loading error:', error);
+                    console.error('═══════════════════════════════════════');
+                    console.error('❌ OBJ LOADING FAILED');
+                    console.error('═══════════════════════════════════════');
+                    console.error('Error:', error);
+                    console.error('Message:', error.message);
+                    console.error('Stack:', error.stack);
+                    console.error('═══════════════════════════════════════');
                     setError('Failed to load OBJ: ' + error.message);
                     setLoading(false);
                 }
