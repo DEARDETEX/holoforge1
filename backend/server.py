@@ -101,6 +101,48 @@ def validate_3d_geometry(file_path: str, file_extension: str) -> dict:
     try:
         logger.info(f"🔍 Starting 3D geometry validation for: {file_path}")
         
+        # Special handling for GLTF format - check for external references
+        if file_extension.lower() == '.gltf':
+            logger.info("📄 Validating GLTF file for external references...")
+            try:
+                with open(file_path, 'r') as f:
+                    gltf_data = json.load(f)
+                
+                # Check for external buffer references
+                if 'buffers' in gltf_data:
+                    for buffer in gltf_data['buffers']:
+                        if 'uri' in buffer:
+                            buffer_uri = buffer['uri']
+                            
+                            # Skip data URIs (embedded content)
+                            if buffer_uri.startswith('data:'):
+                                continue
+                            
+                            # External file reference found
+                            buffer_path = Path(file_path).parent / buffer_uri
+                            if not buffer_path.exists():
+                                error_msg = (
+                                    f"GLTF file references external file '{buffer_uri}' which is missing. "
+                                    f"Please use GLB format (single binary file) instead, or ensure all "
+                                    f"referenced files are included in the upload."
+                                )
+                                logger.error(f"❌ {error_msg}")
+                                validation_result["error_message"] = error_msg
+                                return validation_result
+                
+                logger.info("✅ GLTF file structure valid, no missing external references")
+                
+            except json.JSONDecodeError as e:
+                error_msg = f"Invalid GLTF file: Not valid JSON - {str(e)}"
+                logger.error(f"❌ {error_msg}")
+                validation_result["error_message"] = error_msg
+                return validation_result
+            except Exception as e:
+                error_msg = f"Failed to parse GLTF file: {str(e)}"
+                logger.error(f"❌ {error_msg}")
+                validation_result["error_message"] = error_msg
+                return validation_result
+        
         # Try to load the 3D model using trimesh
         if file_extension.lower() == '.obj':
             logger.info("📄 Loading OBJ file...")
