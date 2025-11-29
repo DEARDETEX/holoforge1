@@ -6,6 +6,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils';
 import * as THREE from 'three';
 
+// ✨ NEW: Import UniversalModelLoader for plugin-based loading
+import UniversalModelLoader from '../core/plugins/UniversalModelLoader';
+
 // Error boundary component for debugging
 class ErrorBoundary extends React.Component {
     constructor(props) {
