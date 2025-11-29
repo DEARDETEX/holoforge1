@@ -610,6 +610,14 @@ async def download_video(job_id: str):
         filename=f"hologram_video_{job_id}.mp4"
     )
 
+# Import export routes
+try:
+    from app.api.routes.export import router as export_router
+    app.include_router(export_router)
+    print("✅ Export API routes loaded successfully")
+except Exception as e:
+    print(f"⚠️  Could not load export routes: {e}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
