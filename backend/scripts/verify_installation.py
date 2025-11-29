@@ -43,11 +43,15 @@ def main():
         print_result(False, f"Python {python_version.major}.{python_version.minor} (need 3.9+)")
         all_checks_passed = False
     
-    # Check 2: FFmpeg
+    # Check 2: FFmpeg (bundled or system)
     print_check("2️⃣", "Checking FFmpeg")
     ffmpeg_status = check_ffmpeg()
     if not ffmpeg_status['installed']:
         all_checks_passed = False
+    else:
+        # Show FFmpeg source
+        if ffmpeg_status.get('source'):
+            print_result(True, f"Source: {ffmpeg_status['source']}")
     
     # Check 3: Required Python packages
     print_check("3️⃣", "Checking Python packages")
