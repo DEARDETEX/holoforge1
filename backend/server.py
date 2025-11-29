@@ -636,6 +636,44 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+@app.on_event("startup")
+async def startup_event():
+    """
+    Application startup
+    
+    Critical: Check all dependencies before accepting requests
+    """
+    from app.core.dependencies.ffmpeg_manager import ffmpeg_manager
+    
+    logger.info("🚀 HoloForge API Starting...")
+    
+    # Health check FFmpeg
+    try:
+        health = ffmpeg_manager.health_check()
+        
+        if health['status'] == 'critical':
+            logger.error("═" * 50)
+            logger.error("❌ CRITICAL: FFmpeg not available!")
+            logger.error("═" * 50)
+            logger.error("   Run: pip install imageio-ffmpeg")
+            logger.error("═" * 50)
+            logger.error("⚠️  Server will start but exports will fail!")
+            logger.error("═" * 50)
+        elif health['status'] == 'degraded':
+            logger.warning("⚠️  FFmpeg available but has issues")
+            for issue in health.get('issues', []):
+                logger.warning(f"   - {issue}")
+        else:
+            logger.info("✅ FFmpeg health check passed")
+            logger.info(f"   Source: {health['source']}")
+            logger.info(f"   Version: {health['version']}")
+    
+    except Exception as e:
+        logger.error(f"Error during startup health check: {e}")
+    
+    logger.info("✅ HoloForge API Ready!")
+
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
