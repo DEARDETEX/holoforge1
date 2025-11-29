@@ -121,11 +121,46 @@ def check_ffmpeg():
     status = {
         'installed': False,
         'version': None,
+        'source': None,
         'codecs_available': [],
         'issues': []
     }
     
-    # Check FFmpeg executable
+    # PRIORITY 1: Check bundled FFmpeg (imageio-ffmpeg)
+    try:
+        import imageio_ffmpeg
+        ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
+        
+        result = subprocess.run(
+            [ffmpeg_path, '-version'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        if result.returncode == 0:
+            status['installed'] = True
+            status['source'] = 'bundled (imageio-ffmpeg)'
+            
+            # Parse version
+            version_line = result.stdout.split('\n')[0]
+            if 'version' in version_line:
+                version = version_line.split('version')[1].split()[0]
+                status['version'] = version
+                print_result(True, f"FFmpeg version {version} (bundled)")
+            else:
+                print_result(True, "FFmpeg found (bundled)")
+            
+            return status  # Return early if bundled FFmpeg works
+            
+    except ImportError:
+        print_result(False, "imageio-ffmpeg not installed")
+        status['issues'].append("Bundled FFmpeg not available (install: pip install imageio-ffmpeg)")
+    except Exception as e:
+        print_result(False, f"Bundled FFmpeg error: {e}")
+        status['issues'].append(f"Bundled FFmpeg check failed: {str(e)}")
+    
+    # PRIORITY 2: Check system FFmpeg (fallback)
     try:
         result = subprocess.run(
             ['ffmpeg', '-version'],
@@ -136,15 +171,16 @@ def check_ffmpeg():
         
         if result.returncode == 0:
             status['installed'] = True
+            status['source'] = 'system'
             
             # Parse version
             version_line = result.stdout.split('\n')[0]
             if 'version' in version_line:
                 version = version_line.split('version')[1].split()[0]
                 status['version'] = version
-                print_result(True, f"FFmpeg version {version}")
+                print_result(True, f"FFmpeg version {version} (system)")
             else:
-                print_result(True, "FFmpeg found")
+                print_result(True, "FFmpeg found (system)")
         else:
             status['issues'].append("FFmpeg command failed")
             print_result(False, "FFmpeg command returned error")
