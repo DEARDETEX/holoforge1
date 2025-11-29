@@ -439,6 +439,28 @@ async def process_video_job(job_id: str):
 async def root():
     return {"message": "HoloForge API - 3D to Hologram Converter"}
 
+
+@api_router.get("/health")
+async def health_check():
+    """
+    Health check endpoint
+    
+    Returns system health including FFmpeg status
+    """
+    from app.core.dependencies.ffmpeg_manager import ffmpeg_manager
+    
+    ffmpeg_health = ffmpeg_manager.health_check()
+    
+    return {
+        "status": "healthy" if ffmpeg_health['status'] != 'critical' else "degraded",
+        "service": "HoloForge API",
+        "version": "1.0.0",
+        "dependencies": {
+            "ffmpeg": ffmpeg_health
+        }
+    }
+
+
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     status_dict = input.dict()
