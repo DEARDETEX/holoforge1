@@ -1,0 +1,108 @@
+/**
+ * Camera Preset Panel Styles
+ */
+
+.camera-preset-panel {
+    background: linear-gradient(
+        135deg,
+        rgba(0, 0, 0, 0.9) 0%,
+        rgba(0, 20, 40, 0.95) 100%
+    );
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 8px 32px rgba(0, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+}
+
+.panel-header {
+    margin-bottom: 12px;
+}
+
+.panel-title {
+    color: rgba(0, 255, 255, 0.9);
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.preset-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.preset-btn {
+    background: rgba(0, 40, 60, 0.5);
+    border: 2px solid rgba(0, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.preset-btn:hover:not(:disabled) {
+    background: rgba(0, 60, 80, 0.7);
+    border-color: rgba(0, 255, 255, 0.5);
+    transform: translateY(-2px);
+}
+
+.preset-btn.active {
+    background: rgba(0, 80, 100, 0.9);
+    border-color: #00ffff;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+}
+
+.preset-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.preset-icon {
+    font-size: 24px;
+}
+
+.preset-name {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.toggle-more-btn {
+    width: 100%;
+    background: rgba(0, 40, 60, 0.3);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 8px;
+    color: rgba(0, 255, 255, 0.8);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.toggle-more-btn:hover:not(:disabled) {
+    background: rgba(0, 60, 80, 0.5);
+    border-color: rgba(0, 255, 255, 0.4);
+}
+
+.preset-grid.additional {
+    margin-top: 8px;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
