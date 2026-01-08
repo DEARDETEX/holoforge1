@@ -628,6 +628,15 @@ f 2 6 7 3
         self.test_health_check()
         self.test_export_capabilities()
         self.test_video_upload()
+        
+        # Only run export tests if video upload succeeded
+        if self.uploaded_video_url:
+            self.test_export_conversion()
+            if hasattr(self, 'export_job_id'):
+                self.test_export_status()
+        else:
+            print("⚠️  Skipping export conversion and status tests - video upload failed")
+        
         self.test_model_upload()
         
         # Print summary
