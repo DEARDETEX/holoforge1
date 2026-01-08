@@ -33,6 +33,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import exportService from '../services/ExportService';
 
 function useExport() {
+    // DEBUG
+    console.log('🎣 useExport function called');
+    
     // ═══════════════════════════════════════════════════════
     // STATE MANAGEMENT
     // ═══════════════════════════════════════════════════════
