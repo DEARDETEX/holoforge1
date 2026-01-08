@@ -429,6 +429,196 @@ f 2 6 7 3
             }
             print(f"❌ Model upload error: {e}")
     
+    def test_export_conversion(self):
+        """Test POST /api/export/convert endpoint"""
+        print("\n" + "="*50)
+        print("🔄 Testing Export Conversion Endpoint")
+        print("="*50)
+        
+        if not self.uploaded_video_url:
+            self.results["export_conversion"] = {
+                "status": "failed",
+                "details": {"error": "No video URL available from upload test"}
+            }
+            print("❌ No video URL available - video upload must succeed first")
+            return
+        
+        try:
+            # Prepare export request
+            export_data = {
+                "source_url": self.uploaded_video_url,
+                "format": "mp4",
+                "quality": "medium",
+                "resolution": [1920, 1080],
+                "fps": 30,
+                "duration": 5
+            }
+            
+            response = self.session.post(f"{API_BASE}/export/convert", json=export_data)
+            
+            print(f"Status Code: {response.status_code}")
+            print(f"Response: {response.text}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check expected response structure
+                expected_keys = ["status", "job_id", "message"]
+                missing_keys = [key for key in expected_keys if key not in data]
+                
+                if missing_keys:
+                    self.results["export_conversion"] = {
+                        "status": "failed",
+                        "details": {
+                            "error": f"Missing keys in response: {missing_keys}",
+                            "response": data
+                        }
+                    }
+                    print(f"❌ Missing keys: {missing_keys}")
+                    return
+                
+                if data.get("status") != "success":
+                    self.results["export_conversion"] = {
+                        "status": "failed",
+                        "details": {
+                            "error": "Export conversion not successful",
+                            "response": data
+                        }
+                    }
+                    print("❌ Export conversion not successful")
+                    return
+                
+                job_id = data.get("job_id")
+                if not job_id:
+                    self.results["export_conversion"] = {
+                        "status": "failed",
+                        "details": {
+                            "error": "No job_id returned",
+                            "response": data
+                        }
+                    }
+                    print("❌ No job_id returned")
+                    return
+                
+                self.results["export_conversion"] = {
+                    "status": "passed",
+                    "details": {
+                        "job_id": job_id,
+                        "message": data.get("message"),
+                        "estimated_time": data.get("estimated_time_seconds")
+                    }
+                }
+                print("✅ Export conversion passed")
+                print(f"   Job ID: {job_id}")
+                print(f"   Message: {data.get('message')}")
+                
+                # Store job_id for status test
+                self.export_job_id = job_id
+                
+            else:
+                self.results["export_conversion"] = {
+                    "status": "failed",
+                    "details": {
+                        "status_code": response.status_code,
+                        "response": response.text
+                    }
+                }
+                print(f"❌ Export conversion failed with status {response.status_code}")
+                
+        except Exception as e:
+            self.results["export_conversion"] = {
+                "status": "failed",
+                "details": {"error": str(e)}
+            }
+            print(f"❌ Export conversion error: {e}")
+    
+    def test_export_status(self):
+        """Test GET /api/export/status/{job_id} endpoint"""
+        print("\n" + "="*50)
+        print("📊 Testing Export Status Endpoint")
+        print("="*50)
+        
+        if not hasattr(self, 'export_job_id') or not self.export_job_id:
+            self.results["export_status"] = {
+                "status": "failed",
+                "details": {"error": "No job_id available from export conversion test"}
+            }
+            print("❌ No job_id available - export conversion must succeed first")
+            return
+        
+        try:
+            response = self.session.get(f"{API_BASE}/export/status/{self.export_job_id}")
+            
+            print(f"Status Code: {response.status_code}")
+            print(f"Response: {response.text}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                # Check expected response structure
+                expected_keys = ["job_id", "status", "progress", "created_at"]
+                missing_keys = [key for key in expected_keys if key not in data]
+                
+                if missing_keys:
+                    self.results["export_status"] = {
+                        "status": "failed",
+                        "details": {
+                            "error": f"Missing keys in response: {missing_keys}",
+                            "response": data
+                        }
+                    }
+                    print(f"❌ Missing keys: {missing_keys}")
+                    return
+                
+                job_status = data.get("status")
+                progress = data.get("progress", 0)
+                
+                # Valid statuses: pending, processing, complete, failed
+                valid_statuses = ["pending", "processing", "complete", "failed"]
+                if job_status not in valid_statuses:
+                    self.results["export_status"] = {
+                        "status": "failed",
+                        "details": {
+                            "error": f"Invalid status '{job_status}', expected one of: {valid_statuses}",
+                            "response": data
+                        }
+                    }
+                    print(f"❌ Invalid status: {job_status}")
+                    return
+                
+                self.results["export_status"] = {
+                    "status": "passed",
+                    "details": {
+                        "job_id": data.get("job_id"),
+                        "status": job_status,
+                        "progress": progress,
+                        "created_at": data.get("created_at"),
+                        "download_url": data.get("download_url"),
+                        "error": data.get("error")
+                    }
+                }
+                print("✅ Export status passed")
+                print(f"   Job ID: {data.get('job_id')}")
+                print(f"   Status: {job_status}")
+                print(f"   Progress: {progress}%")
+                
+            else:
+                self.results["export_status"] = {
+                    "status": "failed",
+                    "details": {
+                        "status_code": response.status_code,
+                        "response": response.text
+                    }
+                }
+                print(f"❌ Export status failed with status {response.status_code}")
+                
+        except Exception as e:
+            self.results["export_status"] = {
+                "status": "failed",
+                "details": {"error": str(e)}
+            }
+            print(f"❌ Export status error: {e}")
+    
     def run_all_tests(self):
         """Run all backend tests"""
         print("🚀 Starting HoloForge Backend API Tests")
