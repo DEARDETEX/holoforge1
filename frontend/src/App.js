@@ -95,24 +95,42 @@ function App() {
                 }
             };
 
-            recorder.onstop = () => {
+            recorder.onstop = async () => {
                 console.log('🎬 [VideoExport] Recording completed, creating video blob...');
                 const blob = new Blob(chunks, { type: 'video/webm' });
-                const url = URL.createObjectURL(blob);
                 
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = `hologram_${Date.now()}.webm`;
-                document.body.appendChild(a);
-                a.click();
+                // Upload to backend for format conversion
+                console.log('📤 [VideoExport] Uploading captured video to server...');
+                try {
+                    const formData = new FormData();
+                    formData.append('video', blob, `hologram_${Date.now()}.webm`);
+                    
+                    const uploadResponse = await axios.post(`${API}/upload-video`, formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    
+                    const serverVideoUrl = `${BACKEND_URL}${uploadResponse.data.video_url}`;
+                    console.log('✅ [VideoExport] Video uploaded:', serverVideoUrl);
+                    setCapturedVideoUrl(serverVideoUrl);
+                    setShowExportPanel(true);
+                    
+                } catch (uploadError) {
+                    console.error('❌ [VideoExport] Upload failed, using local download:', uploadError);
+                    // Fallback to direct download
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `hologram_${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 100);
+                }
                 
-                setTimeout(() => {
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                }, 100);
-                
-                console.log('✅ Video downloaded:', a.download);
                 setIsRecording(false);
                 setRecordingProgress(0);
                 
