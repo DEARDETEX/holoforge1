@@ -101,3 +101,36 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Phase 1 Testing - January 2026
+
+### Tasks Implemented:
+1. **Backend FFmpeg Fix (P0)** 
+   - Integrated FFmpegManager with bundled imageio-ffmpeg into ExportManager
+   - All export strategies now receive correct FFmpeg path
+   - Health endpoint returns: {"status": "healthy", "ffmpeg": {"source": "bundled"}}
+
+2. **Video Upload Endpoint (NEW)**
+   - Added POST /api/upload-video for captured hologram videos
+   - Returns video URL for use with export API
+
+3. **Export Panel Integration (P1)**
+   - ExportPanel component integrated into App.js
+   - Shows after video capture completes
+   - Connected to backend export capabilities API
+
+### API Endpoints to Test:
+- GET /api/health - Should show FFmpeg healthy
+- GET /api/export/capabilities - Should list MP4, GIF, WebM Alpha formats
+- POST /api/upload-video - Should accept video upload and return URL
+
+### Frontend Flow to Test:
+1. Turn on 3D Viewer
+2. Show test cube (hologram rendering)
+3. Click "Generate Hologram Video (15s)" 
+4. After capture, Export Panel should appear on the right
+5. Export panel should show format options (MP4, GIF, WebM Alpha)
+
+### Notes for Testing Agent:
+- Focus on backend API testing via curl first
+- Frontend e2e testing for video capture flow
+- The export conversion process requires actual video file
