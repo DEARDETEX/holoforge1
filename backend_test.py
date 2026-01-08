@@ -295,6 +295,8 @@ class BackendTester:
                                 "file_size_mb": data.get("file_size_mb")
                             }
                         }
+                        # Store video URL for export tests
+                        self.uploaded_video_url = data.get("video_url")
                         print("✅ Video upload passed")
                         print(f"   Video ID: {data.get('video_id')}")
                         print(f"   Video URL: {data.get('video_url')}")
