@@ -220,7 +220,7 @@ def validate_3d_geometry(file_path: str, file_extension: str) -> dict:
         if validation_result["is_valid"]:
             logger.info(f"✅ 3D geometry validation PASSED: {validation_result['vertex_count']} vertices, {validation_result['face_count']} faces")
         else:
-            logger.error(f"❌ 3D geometry validation FAILED: No geometry found")
+            logger.error("❌ 3D geometry validation FAILED: No geometry found")
             validation_result["error_message"] = "No 3D geometry found in file"
             
     except Exception as e:
