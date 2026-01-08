@@ -96,9 +96,9 @@ function useExport() {
      * Future: Could be personalized per user tier
      */
     const loadCapabilities = useCallback(async () => {
-        // Don't reload if already loaded
-        if (capabilities) {
-            console.log('📦 Capabilities already loaded, skipping');
+        // If already loading, skip
+        if (capabilitiesLoading) {
+            console.log('📦 Already loading capabilities, skipping');
             return;
         }
         
@@ -124,9 +124,25 @@ function useExport() {
             if (isMounted.current) {
                 setCapabilitiesError(error.message);
                 setCapabilitiesLoading(false);
+                
+                // Even on error, set fallback capabilities
+                setCapabilities({
+                    mp4: {
+                        name: "MP4 Export",
+                        supported_qualities: ["medium", "high"],
+                        max_resolution: [1920, 1080],
+                        supports_alpha: false
+                    },
+                    gif: {
+                        name: "GIF Export",
+                        supported_qualities: ["low", "medium"],
+                        max_resolution: [640, 640],
+                        supports_alpha: false
+                    }
+                });
             }
         }
-    }, [capabilities]);
+    }, [capabilitiesLoading]);
     
     /**
      * Reload capabilities (call after backend update)
