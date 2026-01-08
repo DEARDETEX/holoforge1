@@ -67,8 +67,47 @@ function useExport() {
     useEffect(() => {
         console.log('🎣 useExport hook mounted');
         
-        // Load capabilities on mount
-        loadCapabilities();
+        // Load capabilities on mount - directly call async function
+        const initCapabilities = async () => {
+            setCapabilitiesLoading(true);
+            try {
+                console.log('🔍 Loading export capabilities...');
+                const caps = await exportService.getCapabilities();
+                
+                if (isMounted.current) {
+                    setCapabilities(caps);
+                    console.log('✅ Capabilities loaded');
+                    console.log('   Formats:', Object.keys(caps).join(', '));
+                }
+            } catch (error) {
+                console.error('❌ Failed to load capabilities:', error);
+                
+                if (isMounted.current) {
+                    setCapabilitiesError(error.message);
+                    // Set fallback capabilities
+                    setCapabilities({
+                        mp4: {
+                            name: "MP4 Export",
+                            supported_qualities: ["medium", "high"],
+                            max_resolution: [1920, 1080],
+                            supports_alpha: false
+                        },
+                        gif: {
+                            name: "GIF Export",
+                            supported_qualities: ["low", "medium"],
+                            max_resolution: [640, 640],
+                            supports_alpha: false
+                        }
+                    });
+                }
+            } finally {
+                if (isMounted.current) {
+                    setCapabilitiesLoading(false);
+                }
+            }
+        };
+        
+        initCapabilities();
         
         // Cleanup on unmount (CRITICAL for production!)
         return () => {
