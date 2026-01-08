@@ -268,7 +268,7 @@ function ExportPanel({ sourceUrl, onExportComplete }) {
                     
                     <div className="format-grid">
                         {Object.entries(formatDescriptions).map(([format, info]) => {
-                            const isAvailable = capabilities && capabilities[format];
+                            const isAvailable = availableFormats && availableFormats[format];
                             const isSelected = selectedFormat === format;
                             
                             return (
