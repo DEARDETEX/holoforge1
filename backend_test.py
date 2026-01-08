@@ -34,10 +34,13 @@ class BackendTester:
             "health_check": {"status": "pending", "details": {}},
             "export_capabilities": {"status": "pending", "details": {}},
             "video_upload": {"status": "pending", "details": {}},
+            "export_conversion": {"status": "pending", "details": {}},
+            "export_status": {"status": "pending", "details": {}},
             "model_upload": {"status": "pending", "details": {}},
         }
         self.session = requests.Session()
         self.session.timeout = 30
+        self.uploaded_video_url = None  # Store for export tests
     
     def test_health_check(self):
         """Test GET /api/health endpoint"""
