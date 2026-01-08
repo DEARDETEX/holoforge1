@@ -570,6 +570,47 @@ async def delete_model(model_id: str):
     
     return {"message": "Model deleted successfully"}
 
+# Video upload endpoint for export system
+@api_router.post("/upload-video")
+async def upload_video(video: UploadFile = File(...)):
+    """
+    Upload a captured hologram video for format conversion
+    
+    Used by frontend after canvas recording completes.
+    Returns the video URL for use with the export API.
+    """
+    logger.info(f"📹 Video upload received: {video.filename}")
+    
+    # Validate file type
+    if not video.content_type or not video.content_type.startswith('video/'):
+        raise HTTPException(status_code=400, detail="Invalid file type. Must be a video.")
+    
+    # Generate unique filename
+    video_id = str(uuid.uuid4())
+    file_extension = video.filename.split('.')[-1] if '.' in video.filename else 'webm'
+    filename = f"{video_id}.{file_extension}"
+    file_path = VIDEO_DIR / filename
+    
+    # Save file
+    try:
+        async with aiofiles.open(file_path, 'wb') as f:
+            content = await video.read()
+            await f.write(content)
+        
+        file_size_mb = len(content) / (1024 * 1024)
+        logger.info(f"✅ Video saved: {filename} ({file_size_mb:.2f} MB)")
+        
+        return {
+            "success": True,
+            "video_id": video_id,
+            "video_url": f"/api/videos/{filename}",
+            "file_size_mb": round(file_size_mb, 2)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Video upload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save video: {str(e)}")
+
 # Video processing endpoints
 @api_router.post("/generate-video", response_model=VideoJob)
 async def generate_video(job_data: VideoJobCreate, background_tasks: BackgroundTasks):
