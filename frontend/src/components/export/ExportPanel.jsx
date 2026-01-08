@@ -127,6 +127,28 @@ function ExportPanel({ sourceUrl, onExportComplete }) {
         }
     };
     
+    // Use capabilities from hook OR fallback to static definitions
+    const availableFormats = capabilities || {
+        mp4: {
+            name: "MP4 Export",
+            supported_qualities: ["low", "medium", "high", "ultra"],
+            max_resolution: [3840, 2160],
+            supports_alpha: false
+        },
+        gif: {
+            name: "GIF Export",
+            supported_qualities: ["low", "medium", "high"],
+            max_resolution: [1280, 720],
+            supports_alpha: false
+        },
+        webm_alpha: {
+            name: "WebM + Alpha",
+            supported_qualities: ["medium", "high"],
+            max_resolution: [1920, 1080],
+            supports_alpha: true
+        }
+    };
+    
     /**
      * Resolution presets (filtered by format capability)
      */
