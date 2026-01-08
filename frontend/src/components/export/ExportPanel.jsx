@@ -172,24 +172,24 @@ function ExportPanel({ sourceUrl, onExportComplete }) {
     // ═══════════════════════════════════════════════════════
     
     const getAvailableQualities = () => {
-        if (!capabilities || !capabilities[selectedFormat]) {
+        if (!availableFormats || !availableFormats[selectedFormat]) {
             return ['low', 'medium', 'high'];
         }
-        return capabilities[selectedFormat].supported_qualities || ['medium', 'high'];
+        return availableFormats[selectedFormat].supported_qualities || ['medium', 'high'];
     };
     
     const getMaxResolution = () => {
-        if (!capabilities || !capabilities[selectedFormat]) {
+        if (!availableFormats || !availableFormats[selectedFormat]) {
             return [1920, 1080];
         }
-        return capabilities[selectedFormat].max_resolution || [1920, 1080];
+        return availableFormats[selectedFormat].max_resolution || [1920, 1080];
     };
     
     const isAlphaSupported = () => {
-        if (!capabilities || !capabilities[selectedFormat]) {
+        if (!availableFormats || !availableFormats[selectedFormat]) {
             return false;
         }
-        return capabilities[selectedFormat].supports_alpha || false;
+        return availableFormats[selectedFormat].supports_alpha || false;
     };
     
     // ═══════════════════════════════════════════════════════
