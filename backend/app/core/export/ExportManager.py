@@ -23,6 +23,7 @@ from app.core.export.ExportStrategy import (
 from app.strategies.export.MP4ExportStrategy import MP4ExportStrategy
 from app.strategies.export.GIFExportStrategy import GIFExportStrategy
 from app.strategies.export.WebMAlphaExportStrategy import WebMAlphaExportStrategy
+from app.core.dependencies.ffmpeg_manager import ffmpeg_manager
 
 
 class ExportManager:
@@ -73,26 +74,38 @@ class ExportManager:
         Register all available export strategies
         
         Adding new format? Just add one line here!
+        
+        CRITICAL: Uses FFmpegManager for portable FFmpeg path
         """
         print("📦 Registering export strategies...\n")
         
+        # Get FFmpeg path from manager (bundled or system)
+        try:
+            ffmpeg_path = ffmpeg_manager.get_ffmpeg_command()
+            print(f"✅ Using FFmpeg from: {ffmpeg_manager.source} ({ffmpeg_path})\n")
+        except RuntimeError as e:
+            print(f"⚠️  FFmpeg not available: {e}")
+            print("   Export strategies will fail until FFmpeg is installed")
+            print("   Install via: pip install imageio-ffmpeg\n")
+            ffmpeg_path = "ffmpeg"  # Fallback, will fail gracefully
+        
         # MP4 (H.264)
-        mp4_strategy = MP4ExportStrategy()
+        mp4_strategy = MP4ExportStrategy(ffmpeg_path=ffmpeg_path)
         self.register(mp4_strategy)
         
         # GIF (optimized)
-        gif_strategy = GIFExportStrategy()
+        gif_strategy = GIFExportStrategy(ffmpeg_path=ffmpeg_path)
         self.register(gif_strategy)
         
         # WebM with Alpha (VFX solution)
-        webm_alpha_strategy = WebMAlphaExportStrategy()
+        webm_alpha_strategy = WebMAlphaExportStrategy(ffmpeg_path=ffmpeg_path)
         self.register(webm_alpha_strategy)
         
         # Future strategies register here:
-        # mov_prores_strategy = MOVProResStrategy()
+        # mov_prores_strategy = MOVProResStrategy(ffmpeg_path=ffmpeg_path)
         # self.register(mov_prores_strategy)
         
-        # apng_strategy = APNGExportStrategy()
+        # apng_strategy = APNGExportStrategy(ffmpeg_path=ffmpeg_path)
         # self.register(apng_strategy)
     
     def register(self, strategy: ExportStrategy):
