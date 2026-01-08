@@ -178,6 +178,30 @@ backend:
         agent: "testing"
         comment: "✅ Video upload endpoint working correctly. Accepts video files, generates unique video_id, saves to videos directory, and returns proper JSON response with success, video_id, video_url, and file_size_mb."
 
+  - task: "Export Conversion Endpoint"
+    implemented: true
+    working: true
+    file: "backend/app/api/routes/export.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ Export conversion endpoint working correctly. CRITICAL FIX VERIFIED: Fixed source URL path resolution issue. Accepts export requests, creates background jobs, returns job_id. Successfully converts real video files (tested with 4.4MB WebM to 11.3MB MP4 in 46s). Properly handles invalid video data with graceful failure."
+
+  - task: "Export Status Endpoint"
+    implemented: true
+    working: true
+    file: "backend/app/api/routes/export.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ Export status endpoint working correctly. Returns proper job status (pending/processing/complete/failed), progress percentage, timestamps, download URLs when complete, and detailed error messages when failed. Status progression verified."
+
   - task: "Model Upload Endpoint"
     implemented: true
     working: true
