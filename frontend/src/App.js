@@ -347,7 +347,7 @@ function App() {
                     }}>
                         <div style={{ textAlign: 'center' }}>
                             <h2 style={{ color: '#00ffff' }}>🎯 3D Model Viewer</h2>
-                            <p>Click "3D Viewer ON" to activate the viewer</p>
+                            <p>Click &quot;3D Viewer ON&quot; to activate the viewer</p>
                             <p>Then upload a 3D model or show test cube</p>
                         </div>
                     </div>
