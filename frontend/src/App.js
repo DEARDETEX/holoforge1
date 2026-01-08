@@ -352,6 +352,50 @@ function App() {
                         </div>
                     </div>
                 )}
+                
+                {/* Export Panel Overlay */}
+                {showExportPanel && capturedVideoUrl && (
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        width: '400px',
+                        maxHeight: '100%',
+                        overflowY: 'auto',
+                        backgroundColor: 'rgba(30, 30, 30, 0.95)',
+                        borderLeft: '2px solid #00ffff',
+                        boxShadow: '-5px 0 20px rgba(0,0,0,0.5)',
+                        zIndex: 100
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '10px 15px',
+                            borderBottom: '1px solid #444'
+                        }}>
+                            <span style={{ color: '#00ffff', fontWeight: 'bold' }}>
+                                ✅ Video Captured!
+                            </span>
+                            <button
+                                onClick={closeExportPanel}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#888',
+                                    fontSize: '20px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <ExportPanel 
+                            sourceUrl={capturedVideoUrl}
+                            onExportComplete={handleExportComplete}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );
