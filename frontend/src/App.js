@@ -194,6 +194,15 @@ function App() {
         }
     };
 
+    const handleExportComplete = (result) => {
+        console.log('✅ [ExportPanel] Export completed:', result);
+        // Could show a notification or update UI
+    };
+
+    const closeExportPanel = () => {
+        setShowExportPanel(false);
+    };
+
     return (
         <div style={{ 
             width: '100vw', 
