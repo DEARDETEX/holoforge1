@@ -285,8 +285,14 @@ async def process_export(job_id: str, request: ExportRequest, user_id: str):
             "progress": 10
         })
         
-        # Use source_url as path (simplified for MVP)
-        source_path = request.source_url
+        # Convert source_url to actual file path
+        if request.source_url.startswith('/api/videos/'):
+            # Extract filename from URL
+            filename = request.source_url.split('/')[-1]
+            source_path = f"/app/backend/videos/{filename}"
+        else:
+            # Use as-is for full paths
+            source_path = request.source_url
         
         job_storage.update_job(job_id, {"progress": 20})
         
