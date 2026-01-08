@@ -17,6 +17,8 @@ function App() {
     // Phase 3: Video Export System
     const [isRecording, setIsRecording] = useState(false);
     const [recordingProgress, setRecordingProgress] = useState(0);
+    const [capturedVideoUrl, setCapturedVideoUrl] = useState(null);
+    const [showExportPanel, setShowExportPanel] = useState(false);
     const mediaRecorderRef = React.useRef(null);
     const progressIntervalRef = React.useRef(null);
 
