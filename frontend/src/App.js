@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import ModelViewer from './components/ModelViewer';
+import ExportPanel from './components/export/ExportPanel';
+import './App.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
