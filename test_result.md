@@ -238,6 +238,8 @@ test_plan:
     - "Health Check Endpoint"
     - "Export Capabilities Endpoint"
     - "Video Upload Endpoint"
+    - "Export Conversion Endpoint"
+    - "Export Status Endpoint"
     - "Model Upload Endpoint"
   stuck_tasks: []
   test_all: false
