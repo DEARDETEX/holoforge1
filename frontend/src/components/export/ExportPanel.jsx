@@ -205,6 +205,9 @@ function ExportPanel({ sourceUrl, onExportComplete }) {
         console.log('═══════════════════════════════════════');
         console.log('🎬 ExportPanel: User clicked Export');
         console.log('═══════════════════════════════════════');
+        console.log('   sourceUrl:', sourceUrl);
+        console.log('   selectedFormat:', selectedFormat);
+        console.log('   selectedQuality:', selectedQuality);
         
         // Reset validation
         setValidationError(null);
@@ -227,16 +230,20 @@ function ExportPanel({ sourceUrl, onExportComplete }) {
             alphaChannel: enableAlpha
         };
         
-        console.log('📤 Export options:', exportOptions);
+        console.log('📤 Export options:', JSON.stringify(exportOptions));
+        console.log('   Calling startExport...');
         
         try {
             // Start export!
-            await startExport(exportOptions);
+            const result = await startExport(exportOptions);
             
             console.log('✅ Export initiated successfully');
+            console.log('   Result:', result);
             
         } catch (error) {
             console.error('❌ Export failed:', error);
+            console.error('   Error message:', error.message);
+            console.error('   Error stack:', error.stack);
             setValidationError(error.message);
         }
     };
