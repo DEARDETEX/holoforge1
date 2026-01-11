@@ -379,7 +379,9 @@ class ExportService {
      * THIS IS CRITICAL for useExport hook!
      */
     async pollUntilComplete(jobId, onProgress, pollInterval = this.config.pollInterval) {
-        console.log(`🔄 Starting status polling for job ${jobId}`);
+        console.log(`%c🔄 Starting status polling for job ${jobId}`, 'color: magenta; font-weight: bold');
+        console.log(`   Poll interval: ${pollInterval}ms`);
+        console.log(`   Callback provided: ${!!onProgress}`);
         
         const abortController = new AbortController();
         
@@ -396,17 +398,21 @@ class ExportService {
                 }
                 
                 pollCount++;
+                console.log(`%c📊 Poll #${pollCount} starting...`, 'color: orange');
                 
                 try {
                     const status = await this.checkStatus(jobId);
                     consecutiveErrors = 0;
                     
-                    console.log(`📊 Poll #${pollCount}: ${status.status} (${status.progress}%)`);
+                    console.log(`%c📊 Poll #${pollCount}: ${status.status} (${status.progress}%)`, 'color: orange');
+                    console.log(`   Download URL: ${status.downloadUrl || 'none'}`);
                     
                     // Call progress callback
                     if (onProgress) {
                         try {
+                            console.log('   Calling onProgress callback...');
                             onProgress(status);
+                            console.log('   Callback completed');
                         } catch (callbackError) {
                             console.error('Error in progress callback:', callbackError);
                         }
@@ -414,7 +420,8 @@ class ExportService {
                     
                     // Check if complete
                     if (status.status === 'complete') {
-                        console.log(`✅ Export complete! Job ${jobId}`);
+                        console.log(`%c✅ Export complete! Job ${jobId}`, 'color: lime; font-weight: bold');
+                        console.log('   Final result:', status.result);
                         this.stopPolling(jobId);
                         resolve(status);
                         return;
@@ -430,8 +437,11 @@ class ExportService {
                     
                     // Continue polling
                     if (status.status === 'pending' || status.status === 'processing') {
+                        console.log(`   Scheduling next poll in ${pollInterval}ms`);
                         const timeoutId = setTimeout(poll, pollInterval);
                         this.activePolls.set(jobId, { timeoutId, abortController });
+                    } else {
+                        console.warn(`   Unknown status: ${status.status} - stopping polling`);
                     }
                     
                 } catch (error) {
