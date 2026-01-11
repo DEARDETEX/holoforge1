@@ -216,7 +216,7 @@ function useExport() {
         
         // Reset state for new export
         setIsExporting(true);
-        setStatus('exporting');
+        setStatus('pending');  // Changed from 'exporting' to 'pending' for dialog compatibility
         setProgress(0);
         setError(null);
         setDownloadUrl(null);
