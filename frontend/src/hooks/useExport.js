@@ -209,10 +209,11 @@ function useExport() {
      * @returns {Promise<Object>} Final status when complete
      */
     const startExport = useCallback(async (options) => {
-        console.log('═══════════════════════════════════════');
-        console.log('🎬 useExport: Starting export');
-        console.log('═══════════════════════════════════════');
-        console.log('   Options:', options);
+        console.log('%c═══════════════════════════════════════', 'color: cyan; font-weight: bold');
+        console.log('%c🎬 useExport: Starting export', 'color: cyan; font-weight: bold');
+        console.log('%c═══════════════════════════════════════', 'color: cyan; font-weight: bold');
+        console.log('   Options:', JSON.stringify(options));
+        console.log('   isMounted:', isMounted.current);
         
         // Reset state for new export
         setIsExporting(true);
@@ -223,12 +224,18 @@ function useExport() {
         setResult(null);
         setEstimatedTime(null);
         
+        console.log('   State reset complete');
+        
         // Create abort controller for cancellation
         abortController.current = new AbortController();
         
         try {
+            console.log('   Calling exportService.startExport...');
+            
             // Step 1: Start export job on backend
             const { jobId, estimatedTime: estTime } = await exportService.startExport(options);
+            
+            console.log(`   ✅ Backend returned jobId: ${jobId}`);
             
             if (!isMounted.current) {
                 console.log('⚠️  Component unmounted, aborting');
@@ -240,15 +247,19 @@ function useExport() {
             
             console.log(`✅ Export job started: ${jobId}`);
             console.log(`   Estimated time: ${estTime}s`);
+            console.log('   Starting polling...');
             
             // Step 2: Poll for completion with progress updates
             const finalStatus = await exportService.pollUntilComplete(
                 jobId,
                 (statusUpdate) => {
                     // Progress callback (called every 2 seconds)
-                    if (!isMounted.current) return;
+                    console.log(`%c📊 Poll callback: ${statusUpdate.status} ${statusUpdate.progress}%`, 'color: yellow');
                     
-                    console.log(`📊 Progress: ${statusUpdate.progress}%`);
+                    if (!isMounted.current) {
+                        console.log('   ⚠️ Component unmounted in callback');
+                        return;
+                    }
                     
                     // Update state with latest status
                     setProgress(statusUpdate.progress);
@@ -258,8 +269,17 @@ function useExport() {
                     if (statusUpdate.result) {
                         setResult(statusUpdate.result);
                     }
+                    
+                    // Check for download URL
+                    if (statusUpdate.downloadUrl) {
+                        console.log(`   Download URL: ${statusUpdate.downloadUrl}`);
+                        setDownloadUrl(statusUpdate.downloadUrl);
+                    }
                 }
             );
+            
+            console.log('%c✅ pollUntilComplete resolved!', 'color: green; font-weight: bold');
+            console.log('   Final status:', finalStatus);
             
             if (!isMounted.current) {
                 console.log('⚠️  Component unmounted during polling');
