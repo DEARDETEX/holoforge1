@@ -286,13 +286,20 @@ async def process_export(job_id: str, request: ExportRequest, user_id: str):
         })
         
         # Convert source_url to actual file path
-        if request.source_url.startswith('/api/videos/'):
-            # Extract filename from URL
-            filename = request.source_url.split('/')[-1]
+        source_url = request.source_url
+        
+        # Handle full URLs (e.g., https://domain.com/api/videos/file.webm)
+        if '/api/videos/' in source_url:
+            # Extract filename from URL (handles both relative and absolute URLs)
+            filename = source_url.split('/api/videos/')[-1].split('?')[0]  # Remove query params if any
+            source_path = f"/app/backend/videos/{filename}"
+        elif source_url.startswith('/videos/'):
+            # Handle /videos/filename.webm
+            filename = source_url.split('/')[-1]
             source_path = f"/app/backend/videos/{filename}"
         else:
             # Use as-is for full paths
-            source_path = request.source_url
+            source_path = source_url
         
         job_storage.update_job(job_id, {"progress": 20})
         
