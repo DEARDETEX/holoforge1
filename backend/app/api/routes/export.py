@@ -427,11 +427,35 @@ async def download_export(job_id: str):
     
     # Build file path
     user_id = job["user_id"]
+    
+    # Handle format value - could be enum string or plain string
     format_val = job["request"]["format"]
+    if isinstance(format_val, str) and '.' in format_val:
+        # Handle enum string like "ExportFormatEnum.MP4"
+        format_val = format_val.split('.')[-1].lower()
+    elif hasattr(format_val, 'value'):
+        # Handle actual enum object
+        format_val = format_val.value
+    else:
+        format_val = str(format_val).lower()
+    
     file_path = f"/app/backend/exports/{user_id}/{job_id}.{format_val}"
     
+    print(f"📥 Download request for job {job_id}")
+    print(f"   File path: {file_path}")
+    print(f"   Exists: {os.path.exists(file_path)}")
+    
     if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
+        # Try common formats if exact match fails
+        for ext in ['mp4', 'gif', 'webm']:
+            alt_path = f"/app/backend/exports/{user_id}/{job_id}.{ext}"
+            if os.path.exists(alt_path):
+                file_path = alt_path
+                format_val = ext
+                print(f"   Found at: {file_path}")
+                break
+        else:
+            raise HTTPException(status_code=404, detail="File not found")
     
     # MIME types
     mime_types = {
