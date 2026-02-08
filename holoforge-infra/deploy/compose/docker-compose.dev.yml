@@ -1,0 +1,148 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# HOLOFORGE - DEVELOPMENT DOCKER COMPOSE
+# ══════════════════════════════════════════════════════════════════════════════
+# Usage: docker compose -f docker-compose.dev.yml up
+# 
+# This is the DEVELOPMENT configuration:
+# - Builds images locally
+# - Volume mounts for hot reload
+# - Debug ports exposed
+# - Relaxed resource limits
+# ══════════════════════════════════════════════════════════════════════════════
+
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # BACKEND API (FastAPI with hot reload)
+  # ───────────────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/backend.Dockerfile
+      target: builder  # Use build stage for dev dependencies
+    container_name: holoforge-backend-dev
+    
+    environment:
+      - APP_ENV=development
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=holoforge_dev
+      - LOG_LEVEL=DEBUG
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    
+    volumes:
+      # Mount source code for hot reload
+      - ../../src/backend:/app
+      # Persist data
+      - dev_uploads:/app/uploads
+      - dev_videos:/app/videos
+      - dev_exports:/app/exports
+    
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # Debug port (debugpy)
+    
+    # Override command for development (with reload)
+    command: >
+      uvicorn server:app 
+      --host 0.0.0.0 
+      --port 8000 
+      --reload 
+      --reload-dir /app
+    
+    depends_on:
+      - mongodb
+    
+    networks:
+      - holoforge-dev-network
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # FRONTEND (React dev server with hot reload)
+  # ───────────────────────────────────────────────────────────────────────────
+  frontend:
+    image: node:20.11.1-bookworm-slim
+    container_name: holoforge-frontend-dev
+    working_dir: /app
+    
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_BACKEND_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true  # Required for Docker volume hot reload
+      - WATCHPACK_POLLING=true
+    
+    volumes:
+      - ../../src/frontend:/app
+      - frontend_node_modules:/app/node_modules  # Persist node_modules
+    
+    ports:
+      - "3000:3000"
+    
+    # Install deps and start dev server
+    command: >
+      sh -c "
+        corepack enable &&
+        yarn install &&
+        yarn start
+      "
+    
+    depends_on:
+      - backend
+    
+    networks:
+      - holoforge-dev-network
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # MONGODB (Development)
+  # ───────────────────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0.5
+    container_name: holoforge-mongodb-dev
+    
+    environment:
+      - MONGO_INITDB_DATABASE=holoforge_dev
+    
+    volumes:
+      - dev_mongodb_data:/data/db
+    
+    ports:
+      - "27017:27017"  # Exposed for local tools
+    
+    networks:
+      - holoforge-dev-network
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # MONGO EXPRESS (Optional: Web UI for MongoDB)
+  # ───────────────────────────────────────────────────────────────────────────
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: holoforge-mongo-express
+    
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=dev123
+    
+    ports:
+      - "8081:8081"
+    
+    depends_on:
+      - mongodb
+    
+    networks:
+      - holoforge-dev-network
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VOLUMES
+# ═══════════════════════════════════════════════════════════════════════════════
+volumes:
+  dev_uploads:
+  dev_videos:
+  dev_exports:
+  dev_mongodb_data:
+  frontend_node_modules:
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# NETWORKS
+# ═══════════════════════════════════════════════════════════════════════════════
+networks:
+  holoforge-dev-network:
+    driver: bridge
