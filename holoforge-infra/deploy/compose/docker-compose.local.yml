@@ -1,0 +1,248 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# HOLOFORGE - UNIFIED LOCAL ORCHESTRATION
+# ══════════════════════════════════════════════════════════════════════════════
+# 
+# PURPOSE:
+#   Single-command orchestration for local development
+#   Frontend + Backend running together with proper networking
+#
+# USAGE:
+#   docker compose -f deploy/compose/docker-compose.local.yml up
+#
+# DESIGN PRINCIPLES:
+#   1. Zero host runtime dependencies (no local Node/Python required)
+#   2. Deterministic startup order via health checks
+#   3. Service discovery via Docker DNS (not localhost)
+#   4. Same images, externalized configuration
+#   5. No database (by design - infrastructure first)
+#
+# ARCHITECTURE:
+#   ┌─────────────────────────────────────────────────────────────────────────┐
+#   │                        DOCKER NETWORK: holoforge-local                  │
+#   │                                                                         │
+#   │   ┌──────────────────┐          ┌──────────────────┐                   │
+#   │   │     FRONTEND     │   HTTP   │     BACKEND      │                   │
+#   │   │   (React Dev)    │─────────▶│    (FastAPI)     │                   │
+#   │   │   Port: 3000     │          │    Port: 8000    │                   │
+#   │   └──────────────────┘          └──────────────────┘                   │
+#   │          │                              │                               │
+#   │          │ (Host: 3000)                 │ (Host: 8000)                  │
+#   └──────────┼──────────────────────────────┼───────────────────────────────┘
+#              ▼                              ▼
+#        Browser Access                 API Access
+#        http://localhost:3000          http://localhost:8000
+#
+# SERVICE COMMUNICATION:
+#   - Frontend container → Backend container: http://backend:8000
+#   - Browser → Frontend: http://localhost:3000
+#   - Browser → Backend (direct): http://localhost:8000
+#
+# ══════════════════════════════════════════════════════════════════════════════
+
+name: holoforge-local
+
+services:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BACKEND SERVICE (FastAPI)
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 
+  # Responsibility: API layer, video processing, export pipeline
+  # Startup: First (no dependencies)
+  # Health: HTTP check on /api/health
+  #
+  backend:
+    container_name: holoforge-backend
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # BUILD CONFIGURATION
+    # ─────────────────────────────────────────────────────────────────────────
+    build:
+      context: ../..
+      dockerfile: deploy/docker/backend.local.Dockerfile
+      args:
+        - BUILD_ENV=local
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # ENVIRONMENT CONFIGURATION
+    # ─────────────────────────────────────────────────────────────────────────
+    # Environment is externalized - no hardcoded values in image
+    environment:
+      # Application mode
+      - APP_ENV=local
+      - LOG_LEVEL=DEBUG
+      
+      # Database (stubbed for now - no DB by design)
+      - MONGO_URL=mongodb://localhost:27017
+      - DB_NAME=holoforge_local
+      
+      # Python runtime optimizations
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+      
+      # CORS configuration (allow frontend)
+      - CORS_ORIGINS=http://localhost:3000,http://frontend:3000
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # VOLUMES (Hot Reload)
+    # ─────────────────────────────────────────────────────────────────────────
+    volumes:
+      # Source code mount for hot reload
+      - ../../src/backend:/app:cached
+      
+      # Persistent data directories
+      - holoforge_uploads:/app/uploads
+      - holoforge_videos:/app/videos
+      - holoforge_exports:/app/exports
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # NETWORKING
+    # ─────────────────────────────────────────────────────────────────────────
+    ports:
+      - "8000:8000"     # API access
+      - "5678:5678"     # Debug port (debugpy)
+    
+    networks:
+      holoforge-network:
+        aliases:
+          - backend
+          - api
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # HEALTH CHECK (Critical for deterministic startup)
+    # ─────────────────────────────────────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=5)"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # RUNTIME COMMAND (Development with hot reload)
+    # ─────────────────────────────────────────────────────────────────────────
+    command: >
+      uvicorn server:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+      --reload-dir /app
+      --log-level debug
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # RESTART POLICY
+    # ─────────────────────────────────────────────────────────────────────────
+    restart: unless-stopped
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FRONTEND SERVICE (React)
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # Responsibility: User interface, 3D rendering, user interactions
+  # Startup: After backend is healthy
+  # Health: HTTP check on development server
+  #
+  frontend:
+    container_name: holoforge-frontend
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # BUILD CONFIGURATION
+    # ─────────────────────────────────────────────────────────────────────────
+    build:
+      context: ../..
+      dockerfile: deploy/docker/frontend.local.Dockerfile
+      args:
+        - BUILD_ENV=local
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # ENVIRONMENT CONFIGURATION
+    # ─────────────────────────────────────────────────────────────────────────
+    environment:
+      # Node environment
+      - NODE_ENV=development
+      
+      # ══════════════════════════════════════════════════════════════════════
+      # CRITICAL: Backend URL Configuration
+      # ══════════════════════════════════════════════════════════════════════
+      # 
+      # This value is used by the BROWSER (client-side), not the container.
+      # Therefore it MUST be localhost (what the browser can reach).
+      #
+      # Container-to-container communication would use http://backend:8000
+      # But React runs in the browser, so it needs http://localhost:8000
+      #
+      - REACT_APP_BACKEND_URL=http://localhost:8000
+      
+      # Hot reload configuration for Docker
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - WDS_SOCKET_PORT=3000
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # VOLUMES (Hot Reload)
+    # ─────────────────────────────────────────────────────────────────────────
+    volumes:
+      # Source code mount for hot reload
+      - ../../src/frontend:/app:cached
+      
+      # Anonymous volume for node_modules (prevents host override)
+      - /app/node_modules
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # NETWORKING
+    # ─────────────────────────────────────────────────────────────────────────
+    ports:
+      - "3000:3000"
+    
+    networks:
+      holoforge-network:
+        aliases:
+          - frontend
+          - web
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # HEALTH CHECK
+    # ─────────────────────────────────────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # DEPENDENCY (Deterministic Startup Order)
+    # ─────────────────────────────────────────────────────────────────────────
+    # Frontend waits for backend to be HEALTHY, not just started
+    depends_on:
+      backend:
+        condition: service_healthy
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # RESTART POLICY
+    # ─────────────────────────────────────────────────────────────────────────
+    restart: unless-stopped
+
+# ═════════════════════════════════════════════════════════════════════════════
+# VOLUMES
+# ═════════════════════════════════════════════════════════════════════════════
+# Named volumes for data persistence across container restarts
+#
+volumes:
+  holoforge_uploads:
+    name: holoforge_uploads
+  holoforge_videos:
+    name: holoforge_videos
+  holoforge_exports:
+    name: holoforge_exports
+
+# ═════════════════════════════════════════════════════════════════════════════
+# NETWORKS
+# ═════════════════════════════════════════════════════════════════════════════
+# Single network for service communication
+# Docker DNS provides service discovery (backend, frontend as hostnames)
+#
+networks:
+  holoforge-network:
+    name: holoforge-network
+    driver: bridge
